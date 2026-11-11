@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mark2Prompt</title>
+  <meta name="description" content="Mark up a screenshot, number what needs to change, and export the image plus a structured prompt for any AI.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232563eb'/%3E%3Ccircle cx='32' cy='32' r='15' fill='white'/%3E%3Ctext x='32' y='39' font-size='20' font-family='Arial' font-weight='700' text-anchor='middle' fill='%232563eb'%3E1%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="appbar">
+    <div class="brand">
+      <div class="logo"><span>1</span></div>
+      <div class="brand-text">
+        <div class="brand-name">Mark2Prompt</div>
+        <div class="brand-sub">Visual feedback for AI</div>
+      </div>
+    </div>
+    <label class="goal-field">
+      <i data-icon="target"></i>
+      <input id="goal" type="text" placeholder="Project goal: what should the AI do with these images?" autocomplete="off">
+    </label>
+    <div class="appbar-actions">
+      <button class="btn ghost" id="btnOpen" data-tip="Open images or a project file"><i data-icon="open"></i><span>Open</span></button>
+      <button class="btn ghost" id="btnSaveProject" data-tip="Save project file · Ctrl+S"><i data-icon="save"></i><span>Save</span></button>
+      <button class="btn ghost" id="btnNew" data-tip="Start a new project"><i data-icon="newfile"></i><span>New</span></button>
+      <span class="vsep"></span>
+      <button class="icon-btn" id="btnTheme" data-tip="Theme: system"><i data-icon="monitor"></i></button>
+      <button class="icon-btn" id="btnHelp" data-tip="Shortcuts · ?"><i data-icon="help"></i></button>
+    </div>
+  </header>
+
+  <nav id="tabs" class="tabs" aria-label="Images"></nav>
+
+  <div class="workspace">
+    <aside class="toolrail" aria-label="Tools">
+      <div class="rail-group" id="tools">
+        <button class="tool" data-tool="select" data-tip="Select, move, resize · V" data-tip-pos="right"><i data-icon="select"></i></button>
+        <button class="tool" data-tool="hand" data-tip="Pan · H or hold Space" data-tip-pos="right"><i data-icon="hand"></i></button>
+        <span class="hsep"></span>
+        <button class="tool" data-tool="marker" data-tip="Numbered pin · M" data-tip-pos="right"><i data-icon="pin"></i></button>
+        <button class="tool" data-tool="rect" data-tip="Box · R" data-tip-pos="right"><i data-icon="rect"></i></button>
+        <button class="tool" data-tool="ellipse" data-tip="Circle · E" data-tip-pos="right"><i data-icon="ellipse"></i></button>
+        <button class="tool" data-tool="arrow" data-tip="Arrow · A" data-tip-pos="right"><i data-icon="arrow"></i></button>
+        <button class="tool" data-tool="line" data-tip="Line · L" data-tip-pos="right"><i data-icon="line"></i></button>
+        <button class="tool" data-tool="pen" data-tip="Freehand pen · P" data-tip-pos="right"><i data-icon="pen"></i></button>
+        <button class="tool" data-tool="highlight" data-tip="Highlight · G" data-tip-pos="right"><i data-icon="highlight"></i></button>
+        <button class="tool" data-tool="text" data-tip="Text label · T" data-tip-pos="right"><i data-icon="text"></i></button>
+        <span class="hsep"></span>
+        <button class="tool" data-tool="blur" data-tip="Pixelate private info · B" data-tip-pos="right"><i data-icon="blur"></i></button>
+        <button class="tool" data-tool="crop" data-tip="Crop image · C" data-tip-pos="right"><i data-icon="crop"></i></button>
+      </div>
+      <div class="rail-group">
+        <button class="tool" id="btnUndo" data-tip="Undo · Ctrl+Z" data-tip-pos="right"><i data-icon="undo"></i></button>
+        <button class="tool" id="btnRedo" data-tip="Redo · Ctrl+Y" data-tip-pos="right"><i data-icon="redo"></i></button>
+        <button class="tool" id="btnDuplicate" data-tip="Duplicate selected · Ctrl+D" data-tip-pos="right"><i data-icon="copy"></i></button>
+        <button class="tool danger" id="btnDelete" data-tip="Delete selected · Del" data-tip-pos="right"><i data-icon="trash"></i></button>
+      </div>
+    </aside>
+
+    <main id="stage" class="stage" data-tool="marker">
+      <div id="canvasWrap" class="canvas-wrap" hidden><canvas id="canvas"></canvas></div>
+
+      <div id="empty" class="empty">
+        <div class="empty-card">
+          <div class="empty-art"><i data-icon="image"></i></div>
+          <h1>Drop an image to start</h1>
+          <p class="empty-sub">Paste a screenshot with <kbd>Ctrl</kbd> + <kbd>V</kbd>, drag a file here, or choose one.</p>
+          <button id="btnEmptyOpen" class="btn primary lg"><i data-icon="open"></i><span>Choose image</span></button>
+          <ol class="steps">
+            <li><span>1</span><div><b>Mark</b><small>Pins, boxes and arrows on what should change</small></div></li>
+            <li><span>2</span><div><b>Describe</b><small>An action, a priority and a note per mark</small></div></li>
+            <li><span>3</span><div><b>Export</b><small>Copy the image and prompt into any AI chat</small></div></li>
+          </ol>
+          <p class="privacy"><i data-icon="lock"></i>Images never leave your browser.</p>
+        </div>
+      </div>
+
+      <textarea id="textInput" class="text-input" rows="1" hidden spellcheck="false"></textarea>
+
+      <div id="cropBar" class="floatbar crop-bar" hidden>
+        <span class="crop-label"><i data-icon="crop"></i><span id="cropSize">Drag to select an area</span></span>
+        <button id="btnCropCancel" class="btn sm">Cancel</button>
+        <button id="btnCropApply" class="btn sm primary" disabled>Apply crop</button>
+      </div>
+
+      <div class="floatbar zoom-bar">
+        <button class="icon-btn sm" id="btnZoomOut" data-tip="Zoom out · −" data-tip-pos="top"><i data-icon="minus"></i></button>
+        <button class="zoom-value" id="zoomInfo" data-tip="Reset to 100%" data-tip-pos="top">100%</button>
+        <button class="icon-btn sm" id="btnZoomIn" data-tip="Zoom in · +" data-tip-pos="top"><i data-icon="plus"></i></button>
+        <span class="vsep"></span>
+        <button class="icon-btn sm" id="btnFit" data-tip="Fit to screen · 0" data-tip-pos="top"><i data-icon="fit"></i></button>
+        <button class="icon-btn sm" id="btnToggleMarks" data-tip="Hide marks · O" data-tip-pos="top"><i data-icon="eye"></i></button>
+      </div>
+    </main>
+
+    <aside class="inspector">
+      <section class="sec">
+        <div class="sec-head"><h2>Style</h2><span id="styleHint" class="hint">For new marks</span></div>
+        <div class="swatches" id="colors">
+          <button class="swatch" data-color="#ef4444" style="--c:#ef4444" aria-label="Red"></button>
+          <button class="swatch" data-color="#f97316" style="--c:#f97316" aria-label="Orange"></button>
+          <button class="swatch" data-color="#eab308" style="--c:#eab308" aria-label="Yellow"></button>
+          <button class="swatch" data-color="#22c55e" style="--c:#22c55e" aria-label="Green"></button>
+          <button class="swatch" data-color="#2563eb" style="--c:#2563eb" aria-label="Blue"></button>
+          <button class="swatch" data-color="#a855f7" style="--c:#a855f7" aria-label="Purple"></button>
+          <button class="swatch" data-color="#ec4899" style="--c:#ec4899" aria-label="Pink"></button>
+          <button class="swatch" data-color="#ffffff" style="--c:#ffffff" aria-label="White"></button>
+          <button class="swatch" data-color="#111827" style="--c:#111827" aria-label="Black"></button>
+          <label class="swatch custom" data-tip="Custom color"><input id="customColor" type="color" value="#ef4444"></label>
+        </div>
+        <div class="row">
+          <label for="size" class="row-label">Size</label>
+          <input id="size" type="range" min="1" max="20" value="4">
+          <span id="sizeValue" class="row-value">4</span>
+        </div>
+        <div class="row">
+          <span class="row-label">Stroke</span>
+          <div class="segmented" id="strokeStyle">
+            <button data-dash="0" class="active">Solid</button>
+            <button data-dash="1">Dashed</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-head"><h2>Image context</h2></div>
+        <textarea id="imgNote" rows="2" placeholder="What is this image? e.g. Checkout page, mobile view" disabled></textarea>
+      </section>
+
+      <section class="sec grow">
+        <div class="sec-head"><h2>Marks</h2><span id="markCount" class="count"></span></div>
+        <div id="notes" class="notes"></div>
+      </section>
+
+      <section class="sec export">
+        <div class="sec-head"><h2>Export for AI</h2></div>
+        <div class="row">
+          <label for="preset" class="row-label">Prompt</label>
+          <select id="preset"></select>
+        </div>
+        <label class="check"><input type="checkbox" id="legend"><span>Add a notes legend under the image</span></label>
+        <div class="export-main">
+          <button id="btnCopyImage" class="btn primary"><i data-icon="image"></i><span>Copy image</span></button>
+          <button id="btnCopyPrompt" class="btn primary"><i data-icon="clipboard"></i><span>Copy prompt</span></button>
+        </div>
+        <div class="export-sub">
+          <button id="btnDownloadPng" class="btn sm ghost"><i data-icon="download"></i><span>PNG</span></button>
+          <button id="btnDownloadMd" class="btn sm ghost"><i data-icon="download"></i><span>Markdown</span></button>
+          <button id="btnPreview" class="btn sm ghost"><i data-icon="eye"></i><span>Preview</span></button>
+        </div>
+        <pre id="promptPreview" hidden></pre>
+      </section>
+    </aside>
+  </div>
+
+  <footer class="statusbar">
+    <span id="stImage">No image</span>
+    <span id="stMarks"></span>
+    <span id="stZoom"></span>
+    <span class="spacer"></span>
+    <span id="stSave"></span>
+    <span class="st-privacy"><i data-icon="lock"></i>Local only</span>
+  </footer>
+</div>
+
+<input id="fileInput" type="file" accept="image/*,.json,application/json" multiple hidden>
+<div id="tip" class="tip" hidden></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<dialog id="help">
+  <div class="dlg-head"><h2>Shortcuts</h2><form method="dialog"><button class="icon-btn" aria-label="Close"><i data-icon="x"></i></button></form></div>
+  <div class="kbd-grid">
+    <div><kbd>V</kbd>Select / move / resize</div><div><kbd>H</kbd> / <kbd>Space</kbd>Pan</div>
+    <div><kbd>M</kbd>Numbered pin</div><div><kbd>R</kbd>Box</div>
+    <div><kbd>E</kbd>Circle</div><div><kbd>A</kbd>Arrow</div>
+    <div><kbd>L</kbd>Line</div><div><kbd>P</kbd>Pen</div>
+    <div><kbd>G</kbd>Highlight</div><div><kbd>T</kbd>Text</div>
+    <div><kbd>B</kbd>Pixelate</div><div><kbd>C</kbd>Crop</div>
+    <div><kbd>O</kbd>Hide / show marks</div><div><kbd>0</kbd>Fit to screen</div>
+    <div><kbd>+</kbd> / <kbd>−</kbd>Zoom</div><div><kbd>Del</kbd>Delete</div>
+    <div><kbd>Ctrl</kbd>+<kbd>Z</kbd>Undo</div><div><kbd>Ctrl</kbd>+<kbd>Y</kbd>Redo</div>
+    <div><kbd>Ctrl</kbd>+<kbd>D</kbd>Duplicate</div><div><kbd>Ctrl</kbd>+<kbd>S</kbd>Save project</div>
+    <div><kbd>←↑→↓</kbd>Nudge (Shift ×10)</div><div><kbd>Shift</kbd>Square / 45°</div>
+  </div>
+  <p class="dlg-note">Double-click a text label to edit it. Double-click a mark to jump to its note. Work autosaves in this browser.</p>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
